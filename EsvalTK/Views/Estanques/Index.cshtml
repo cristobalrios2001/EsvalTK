@@ -1,0 +1,23 @@
+﻿@model IEnumerable<EsvalTK.Models.Estanque>
+
+<h2>Lista de Estanques</h2>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Número de Estanque</th>
+            <th>ID del Dispositivo</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var estanque in Model)
+        {
+            <tr>
+                <td>@estanque.Id</td>
+                <td>@estanque.NumeroEstanque</td>
+                <td>@estanque.Mediciones</td>
+            </tr>
+        }
+    </tbody>
+</table>
