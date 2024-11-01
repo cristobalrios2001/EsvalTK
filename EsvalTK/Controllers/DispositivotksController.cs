@@ -7,11 +7,11 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace EsvalTK.Controllers
 {
-    public class EstanquesController : Controller
+    public class DispositivotksController : Controller
     {
         private readonly EsvalTKContext _context;
 
-        public EstanquesController(EsvalTKContext context)
+        public DispositivotksController(EsvalTKContext context)
         {
             _context = context;
         }
@@ -24,17 +24,17 @@ namespace EsvalTK.Controllers
 
         // Acción para procesar el envío del formulario
         [HttpPost]
-        public async Task<IActionResult> Create(EstanqueViewModel model)
+        public async Task<IActionResult> Create(DispositivotkViewModel model)
         {
             if (ModelState.IsValid)
             {
-                var estanque = new Estanque
+                var dispositivo = new Dispositivotk
                 {
-                    Id = model.IdDispositivo, // ID del dispositivo solo numérico
-                    NumeroEstanque = model.NumeroEstanque // Letras y números para el número del estanque
+                    IdDispositivo = model.IdDispositivo,  
+                    NumeroEstanque = model.NumeroEstanque
                 };
 
-                _context.Estanques.Add(estanque);
+                _context.Dispositivotk.Add(dispositivo);
                 await _context.SaveChangesAsync();
 
                 // Si el registro es exitoso, establecer el mensaje en TempData

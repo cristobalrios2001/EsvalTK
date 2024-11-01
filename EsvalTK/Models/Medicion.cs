@@ -1,9 +1,10 @@
-﻿using System.ComponentModel.DataAnnotations.Schema;
+﻿using System;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace EsvalTK.Models
 {
-    [Table("MEDICION")] // Nombre de la tabla en la base de datos
+    [Table("MEDICION")] 
     public class Medicion
     {
         [Key]
@@ -11,7 +12,7 @@ namespace EsvalTK.Models
         public Guid Id { get; set; }
 
         [Column("ID_DISPOSITIVO")]
-        public required string IdDispositivo { get; set; }
+        public required string IdDispositivo { get; set; } 
 
         [Column("NIVEL")]
         public long Nivel { get; set; }
@@ -19,12 +20,15 @@ namespace EsvalTK.Models
         [Column("FECHA")]
         public DateTime Fecha { get; set; }
 
-        [ForeignKey("IdDispositivo")]
-        public Estanque? Estanque { get; set; }
+        [Column("ID_RELACION")]
+        public required Guid IdRelacion { get; set; }
+
+        [ForeignKey("IdRelacion")]
+        public Dispositivotk? Dispositivotk { get; set; } 
 
         public Medicion()
         {
-            Id = Guid.NewGuid(); // Se genera un GUID único cuando se crea una instancia
+            Id = Guid.NewGuid(); 
         }
     }
 }
