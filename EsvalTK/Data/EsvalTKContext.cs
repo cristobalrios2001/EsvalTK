@@ -9,7 +9,7 @@ namespace EsvalTK.Data
         {
         }
 
-        public DbSet<Estanque> Estanques { get; set; }
+        public DbSet<Dispositivotk> Dispositivotk { get; set; }
         public DbSet<Medicion> Mediciones { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)

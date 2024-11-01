@@ -26,11 +26,12 @@ namespace EsvalTK.Controllers
         {
             if (ModelState.IsValid)
             {
-                // Verificar si el dispositivo con el ID enviado existe en la tabla "dispositivotk"
-                var dispositivo = await _context.Estanques.FindAsync(model.IdDispositivo);
+
+                var dispositivo = await _context.Dispositivotk.FirstOrDefaultAsync(d => d.Estado == "activo" && d.IdDispositivo == model.IdDispositivo);
+
                 if (dispositivo == null)
                 {
-                    return NotFound(new { Message = "El dispositivo no existe." });
+                    return NotFound("No se encontró un dispositivo activo con el ID proporcionado.");
                 }
 
                 // Crear la nueva medición
@@ -38,7 +39,8 @@ namespace EsvalTK.Controllers
                 {
                     IdDispositivo = model.IdDispositivo,
                     Nivel = (long)model.NivelAgua,    // Conviertes el nivel de agua
-                    Fecha = DateTime.Now
+                    Fecha = DateTime.Now,
+                    IdRelacion = dispositivo.IdRelacion,
                 };
 
                 // Guardar la medición en la base de datos
@@ -58,7 +60,7 @@ namespace EsvalTK.Controllers
         public async Task<IActionResult> ObtenerUltimaMedicionPorDispositivo()
         {
             var ultimasMediciones = await _context.Mediciones
-                .Include(m => m.Estanque) // Incluye la relación con Estanque
+                .Include(m => m.Dispositivotk) // Incluye la relación con Estanque
                 .GroupBy(m => m.IdDispositivo)
                 .Select(g => g.OrderByDescending(m => m.Fecha).FirstOrDefault())
                 .ToListAsync();
@@ -66,7 +68,7 @@ namespace EsvalTK.Controllers
             var resultado = ultimasMediciones.Select(m => new
             {
                 m.IdDispositivo,
-                NumeroEstanque = m.Estanque?.NumeroEstanque,
+                NumeroEstanque = m.Dispositivotk?.NumeroEstanque,
                 m.Nivel,
                 Fecha = m.Fecha.Date,
                 Hora = m.Fecha.TimeOfDay,
