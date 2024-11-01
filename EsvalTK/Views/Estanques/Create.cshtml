@@ -1,0 +1,37 @@
+﻿@model EsvalTK.Models.EstanqueViewModel
+
+<link rel="stylesheet" href="~/css/Create.cshtml.css" asp-append-version="true" />
+
+<div class="form-container mx-auto mt-5">
+    <h2>Registro de Dispositivo</h2>
+    <p>Ingrese los datos del dispositivo y estanque</p>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success">
+            @TempData["SuccessMessage"]
+        </div>
+    }
+
+    <form asp-action="Create" method="post">
+        <div class="input-container mb-3">
+            <label for="IdDispositivo" class="form-label">Identificador del sensor</label>
+            <input type="text" class="form-control" id="IdDispositivo" name="IdDispositivo" pattern="[0-9]+" title="El ID solo puede contener números." required placeholder="123456789" />
+            <span asp-validation-for="IdDispositivo" class="text-danger"></span>
+        </div>
+
+        <div class="input-container mb-3">
+            <label for="NumeroEstanque" class="form-label">Número del Estanque</label>
+            <input type="text" class="form-control" id="NumeroEstanque" name="NumeroEstanque" pattern="[a-zA-Z0-9]+" title="El número del estanque solo puede contener letras y números." required placeholder="123ABC" />
+            <span asp-validation-for="NumeroEstanque" class="text-danger"></span>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Enviar</button>
+    </form>
+</div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}
