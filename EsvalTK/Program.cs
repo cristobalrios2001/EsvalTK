@@ -41,7 +41,7 @@ app.UseAuthorization();
 
 app.MapControllerRoute(
     name: "default",
-    pattern: "{controller=Estanques}/{action=Create}/{id?}");
+    pattern: "{controller=Dispositivotks}/{action=Create}/{id?}");
 app.MapControllers();
 
 app.Run();

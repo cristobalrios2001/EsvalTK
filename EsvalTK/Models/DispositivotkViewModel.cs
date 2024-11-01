@@ -2,7 +2,7 @@
 
 namespace EsvalTK.Models
 {
-    public class EstanqueViewModel
+    public class DispositivotkViewModel
     {
         [Required(ErrorMessage = "El ID del dispositivo es obligatorio")]
         [RegularExpression("^[0-9]+$", ErrorMessage = "El ID del dispositivo solo puede contener números.")]
