@@ -1,4 +1,4 @@
-﻿@model IEnumerable<EsvalTK.Models.Estanque>
+﻿@model IEnumerable<EsvalTK.Models.Dispositivotk>
 
 <h2>Lista de Estanques</h2>
 
@@ -14,7 +14,7 @@
         @foreach (var estanque in Model)
         {
             <tr>
-                <td>@estanque.Id</td>
+                <td>@estanque.IdRelacion</td>
                 <td>@estanque.NumeroEstanque</td>
                 <td>@estanque.Mediciones</td>
             </tr>
