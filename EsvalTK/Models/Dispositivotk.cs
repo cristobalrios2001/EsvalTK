@@ -23,7 +23,7 @@ namespace EsvalTK.Models
         public DateTime? FechaFin { get; set; }
 
         [Column("ESTADO")]
-        public string Estado { get; set; } = "activo";
+        public int Estado { get; set; } = 1;
 
         // Relación uno a muchos con Medicion
         public ICollection<Medicion> Mediciones { get; set; } = new List<Medicion>(); 

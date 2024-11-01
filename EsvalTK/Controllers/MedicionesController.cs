@@ -27,7 +27,7 @@ namespace EsvalTK.Controllers
             if (ModelState.IsValid)
             {
 
-                var dispositivo = await _context.Dispositivotk.FirstOrDefaultAsync(d => d.Estado == "activo" && d.IdDispositivo == model.IdDispositivo);
+                var dispositivo = await _context.Dispositivotk.FirstOrDefaultAsync(d => d.Estado == 1 && d.IdDispositivo == model.IdDispositivo);
 
                 if (dispositivo == null)
                 {
