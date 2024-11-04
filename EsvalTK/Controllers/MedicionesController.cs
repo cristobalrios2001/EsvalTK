@@ -37,7 +37,7 @@ namespace EsvalTK.Controllers
                 // Crear la nueva medición
                 var medicion = new Medicion
                 {
-                    IdDispositivo = model.IdDispositivo,
+                    //IdDispositivo = model.IdDispositivo,
                     Nivel = (long)model.NivelAgua,    // Conviertes el nivel de agua
                     Fecha = DateTime.Now,
                     IdRelacion = dispositivo.IdRelacion,
@@ -60,30 +60,28 @@ namespace EsvalTK.Controllers
         public async Task<IActionResult> ObtenerUltimaMedicionPorDispositivo()
         {
             var ultimasMediciones = await _context.Mediciones
-                .Include(m => m.Dispositivotk) // Incluye la relación con Estanque
-                .GroupBy(m => m.IdDispositivo)
+                .Include(m => m.Dispositivotk) // Incluye la relación con RELACION_DTK                
+                .GroupBy(m => m.IdRelacion) // Agrupa por el id de la relación, no por el dispositivo
                 .Select(g => g.OrderByDescending(m => m.Fecha).FirstOrDefault())
                 .ToListAsync();
 
             var resultado = ultimasMediciones.Select(m => new
             {
-                m.IdDispositivo,
-                NumeroEstanque = m.Dispositivotk?.NumeroEstanque,
-                m.Nivel,
+                IdRelacion = m.IdRelacion,
+                NumeroEstanque = m.Dispositivotk?.NumeroEstanque, // Accede a Rotulotk o cualquier campo representativo del estanque en RELACION_DTK
+                Nivel = m.Nivel,
                 Fecha = m.Fecha.Date,
                 Hora = m.Fecha.TimeOfDay,
-                 // Accede al NumeroEstanque
             }).ToList();
 
-            // Verifica si se encontraron mediciones
             if (resultado == null || !resultado.Any())
             {
                 return NotFound(new { Message = "No se encontraron mediciones." });
             }
 
-            // Retorna las mediciones más recientes por dispositivo
             return Ok(resultado);
         }
+
     }
 
     // Modelo de solicitud para el POST
