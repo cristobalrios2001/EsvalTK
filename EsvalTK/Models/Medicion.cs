@@ -11,8 +11,8 @@ namespace EsvalTK.Models
         [Column("ID")]
         public Guid Id { get; set; }
 
-        [Column("ID_DISPOSITIVO")]
-        public required string IdDispositivo { get; set; } 
+        //[Column("ID_DISPOSITIVO")]
+        //public required string IdDispositivo { get; set; } 
 
         [Column("NIVEL")]
         public long Nivel { get; set; }
