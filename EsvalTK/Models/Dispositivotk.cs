@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace EsvalTK.Models
 {
-    [Table("DISPOSITIVOTK")]
+    [Table("RELACION_DTK")]
     public class Dispositivotk
     {
         [Key]
