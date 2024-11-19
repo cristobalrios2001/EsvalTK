@@ -1,12 +1,11 @@
 using DotNetEnv;
 using EsvalTK.Data;
 using Microsoft.EntityFrameworkCore;
-
+using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllersWithViews();
-
+// Cargar variables de entorno
 Env.Load();
 
 // Construir la cadena de conexión manualmente usando variables de entorno
@@ -22,14 +21,56 @@ builder.Services.AddDbContext<EsvalTKContext>(options =>
            .EnableSensitiveDataLogging() // Permite ver la información de los parámetros
            .LogTo(Console.WriteLine)); // Log a la consola
 
+// Configurar Swagger
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "EsvalTK API",
+        Version = "v1",
+        Description = "Documentación de la API de EsvalTK utilizando Swagger",
+    });
+
+    // Configuración de seguridad para JWT (opcional)
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        In = ParameterLocation.Header,
+        Description = "Ingrese el token JWT en el campo siguiente (sin 'Bearer')",
+        Name = "Authorization",
+        Type = SecuritySchemeType.ApiKey
+    });
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
+
+builder.Services.AddControllersWithViews();
+
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+// Configurar el pipeline de solicitudes HTTP
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");
-    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
+}
+else
+{
+    // Activar Swagger solo en desarrollo
+    app.UseSwagger();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "EsvalTK API v1");
+        c.RoutePrefix = "swagger"; // Hace que Swagger esté disponible en la raíz
+    });
 }
 
 app.UseHttpsRedirection();
