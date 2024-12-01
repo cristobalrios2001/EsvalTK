@@ -6,6 +6,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Threading.Tasks;
 using System.Linq;
 using Microsoft.EntityFrameworkCore;
+using EsvalTK.Models.Responses;
 
 namespace EsvalTK.Controllers
 {
@@ -48,7 +49,13 @@ namespace EsvalTK.Controllers
                 await _context.SaveChangesAsync();
 
                 // Retornar un mensaje de éxito
-                return Ok(new { Message = "Medición registrada con éxito." });
+                return Ok(new MedicionResponse
+                {
+                    Message = "Medición registrada con éxito.",
+                    IdDispositivo = model.IdDispositivo,
+                    Nivel = medicion.Nivel,
+                    FechaRegistro = medicion.Fecha
+                });
             }
 
             // Si el modelo no es válido, retornar un error de validación
