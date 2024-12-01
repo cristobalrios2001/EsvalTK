@@ -17,6 +17,12 @@ namespace EsvalTK.Controllers
         }
 
         // Acción para mostrar el formulario de ingreso de datos
+        public IActionResult Create(Dispositivotk newDevice)
+        {
+            return View();
+        }
+
+        [HttpGet]
         public IActionResult Create()
         {
             return View();
