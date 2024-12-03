@@ -1,25 +1,15 @@
-﻿using EsvalTK.Data;
-using EsvalTK.Models;
-using Microsoft.AspNetCore.Http;
+﻿using EsvalTK.Models;
 using Microsoft.AspNetCore.Mvc;
-
-
 
 namespace EsvalTK.Controllers
 {
     public class DispositivotksController : Controller
     {
-        private readonly EsvalTKContext _context;
+        private readonly IDispositivotkService _dispositivotkService;
 
-        public DispositivotksController(EsvalTKContext context)
+        public DispositivotksController(IDispositivotkService dispositivotkService)
         {
-            _context = context;
-        }
-
-        // Acción para mostrar el formulario de ingreso de datos
-        public IActionResult Create(Dispositivotk newDevice)
-        {
-            return View();
+            _dispositivotkService = dispositivotkService;
         }
 
         [HttpGet]
@@ -28,29 +18,24 @@ namespace EsvalTK.Controllers
             return View();
         }
 
-        // Acción para procesar el envío del formulario
         [HttpPost]
         public async Task<IActionResult> Create(DispositivotkViewModel model)
         {
             if (ModelState.IsValid)
             {
-                var dispositivo = new Dispositivotk
+                var result = await _dispositivotkService.CreateDispositivoAsync(model);
+
+                if (result)
                 {
-                    IdDispositivo = model.IdDispositivo,  
-                    NumeroEstanque = model.NumeroEstanque
-                };
-
-                _context.Dispositivotk.Add(dispositivo);
-                await _context.SaveChangesAsync();
-
-                // Si el registro es exitoso, establecer el mensaje en TempData
-                TempData["SuccessMessage"] = "El registro del dispositivo y estanque fue realizado con éxito.";
-
-                // Redirigir de nuevo a la misma vista para que el mensaje se muestre
-                return RedirectToAction("Create");
+                    TempData["SuccessMessage"] = "El registro del dispositivo y estanque fue realizado con éxito.";
+                    return RedirectToAction("Create");
+                }
+                else
+                {
+                    ModelState.AddModelError(string.Empty, "Ocurrió un error al guardar el dispositivo.");
+                }
             }
 
-            // Si el modelo no es válido, mostrar de nuevo el formulario con los errores
             return View(model);
         }
     }
