@@ -1,29 +1,15 @@
+```C
 #include <SPI.h>
 #include <LoRa.h>
-#include <WiFi.h>
-#include <HTTPClient.h>
 #include <esp_sleep.h>
 
-//--------------------------------------------------------------
+//-------------------------------------------------------------------
 
 // Alturas del tanque (en cm)
 const float ALTURA_MAXIMA = 300.0; // 3 metros = 0% de llenado
 const float ALTURA_MINIMA = 20.0;  // 20 cm = 100% de llenado
 
-const int ID_dispositivo = 1;
-
-// Credenciales de WiFi
-const char* ssid = "Iphone de Cristóbal";
-const char* password = "gilmaximo";
-
-// URL de la API
-const char* apiUrl = "https://7570-186-11-2-49.ngrok-free.app/api/Mediciones/RegisterWaterLevelMeasurement";
-
-// Configuración de tiempos (en milisegundos y microsegundos)
-const unsigned long activeDuration = 60000; // 1 minuto de mediciones
-const unsigned long sleepDuration = 15 * 60 * 1000000; // 15 minutos en microsegundos
-
-//--------------------------------------------------------------
+//-------------------------------------------------------------------
 
 // Pines para el módulo LoRa
 #define NSS 5     // Pin de selección de esclavo (NSS o CS)
@@ -34,19 +20,13 @@ const unsigned long sleepDuration = 15 * 60 * 1000000; // 15 minutos en microseg
 #define TRIG_PIN 4
 #define ECHO_PIN 16
 
+// Configuración de tiempos (en milisegundos y microsegundos)
+const unsigned long activeDuration = 60000; // 1 minuto de mediciones
+const unsigned long sleepDuration = 15 * 60 * 1000000; // 15 minutos en microsegundos
 
 void setup() {
   Serial.begin(115200);
   while (!Serial);
-
-  // Conexión a WiFi
-  Serial.println("Conectando a WiFi...");
-  WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(1000);
-    Serial.println("Conectando...");
-  }
-  Serial.println("Conexión WiFi establecida");
 
   // Configurar los pines del sensor ultrasónico
   pinMode(TRIG_PIN, OUTPUT);
@@ -57,8 +37,8 @@ void setup() {
   // Configurar los pines del módulo LoRa
   LoRa.setPins(NSS, RST, DIO0);
 
-  // Iniciar el módulo LoRa en la frecuencia adecuada
-  if (!LoRa.begin(433E6)) { // Cambia la frecuencia según el módulo
+  // Iniciar el módulo LoRa en la frecuencia adecuada (433E6, 868E6 o 915E6)
+  if (!LoRa.begin(433E6)) {  // Cambia la frecuencia según el módulo
     Serial.println("Error al iniciar LoRa");
     while (1);
   }
@@ -95,11 +75,23 @@ void loop() {
       LoRa.endPacket();
 
       Serial.println("Mensaje enviado por LoRa");
-
-      // Enviar los datos a la API
-      enviarDatosAPI(porcentaje);
     } else {
       Serial.println("Distancia es 0 cm, no se envía mensaje");
+    }
+
+    // Recepción de mensajes LoRa
+    int packetSize = LoRa.parsePacket();
+    if (packetSize) {
+      Serial.print("Mensaje recibido: ");
+
+      // Leer el paquete recibido
+      String message = "";
+      while (LoRa.available()) {
+        message += (char)LoRa.read();
+      }
+
+      // Mostrar el mensaje recibido
+      Serial.println(message);
     }
 
     delay(5000); // Espera 5 segundos antes de la próxima medición
@@ -138,30 +130,4 @@ float calcularPorcentajeLlenado(float distancia) {
 
   return ((ALTURA_MAXIMA - distancia) / (ALTURA_MAXIMA - ALTURA_MINIMA)) * 100.0;
 }
-
-// Función para enviar los datos a la API
-void enviarDatosAPI(float nivelAgua) {
-  if (WiFi.status() == WL_CONNECTED) {
-    HTTPClient http;
-    http.begin(apiUrl);
-    http.addHeader("Content-Type", "application/json");
-
-    // Crear el payload en formato JSON
-    String payload = "{\"IdDispositivo\":" + String(ID_dispositivo) + ",\"NivelAgua\":" + String(nivelAgua) + "}";
-
-    // Enviar la solicitud POST
-    int httpResponseCode = http.POST(payload);
-
-    if (httpResponseCode > 0) {
-      Serial.print("Respuesta de la API: ");
-      Serial.println(httpResponseCode);
-      Serial.println(http.getString());
-    } else {
-      Serial.print("Error al enviar datos: ");
-      Serial.println(http.errorToString(httpResponseCode).c_str());
-    }
-    http.end();
-  } else {
-    Serial.println("WiFi no conectado, no se pueden enviar datos");
-  }
-}
+```
