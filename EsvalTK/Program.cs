@@ -44,6 +44,8 @@ builder.Services.AddSwaggerGen(c =>
 
 // Agregar controladores con vistas
 builder.Services.AddControllersWithViews();
+builder.Services.AddScoped<IDispositivotkService, DispositivotkService>();
+builder.Services.AddScoped<IMedicionService, MedicionService>();
 
 var app = builder.Build();
 
