@@ -7,6 +7,12 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EsvalTK", "EsvalTK\EsvalTK.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EsvalTK.Tests", "EsvalTK.Tests\EsvalTK.Tests.csproj", "{6D281AA3-17CB-45F6-B497-E5C83B2204DE}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Codigo_ESP32", "Codigo_ESP32", "{752D1D33-8BA4-43D9-B12C-E707379A5D27}"
+	ProjectSection(SolutionItems) = preProject
+		Codigo_Antena.cpp = Codigo_Antena.cpp
+		Codigo_Sensor.cpp = Codigo_Sensor.cpp
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
