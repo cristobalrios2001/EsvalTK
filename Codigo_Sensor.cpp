@@ -1,5 +1,7 @@
 #include <SPI.h>
 #include <LoRa.h>
+#include "esp_bt.h"
+#include <WiFi.h>
 
 // Pines para el módulo LoRa
 #define NSS 5     // Pin de selección de esclavo (NSS o CS)
@@ -24,6 +26,15 @@ const unsigned long SLEEP_TIME = 15 * 60 * 1000000; // Tiempo en modo deep sleep
 void setup() {
   Serial.begin(115200);
   while (!Serial);
+
+  // Deshabilitar Wi-Fi y Bluetooth para ahorrar batería
+  WiFi.mode(WIFI_OFF);
+  WiFi.disconnect(true);
+  esp_bluedroid_disable();
+  esp_bluedroid_deinit();
+  esp_bt_controller_disable();
+  esp_bt_controller_deinit();
+  esp_bt_controller_mem_release(ESP_BT_MODE_BTDM);
 
   // Configurar los pines del sensor ultrasónico
   pinMode(TRIG_PIN, OUTPUT);
