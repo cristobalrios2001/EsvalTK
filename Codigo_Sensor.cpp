@@ -1,15 +1,5 @@
-```C
 #include <SPI.h>
 #include <LoRa.h>
-#include <esp_sleep.h>
-
-//-------------------------------------------------------------------
-
-// Alturas del tanque (en cm)
-const float ALTURA_MAXIMA = 300.0; // 3 metros = 0% de llenado
-const float ALTURA_MINIMA = 20.0;  // 20 cm = 100% de llenado
-
-//-------------------------------------------------------------------
 
 // Pines para el módulo LoRa
 #define NSS 5     // Pin de selección de esclavo (NSS o CS)
@@ -20,114 +10,56 @@ const float ALTURA_MINIMA = 20.0;  // 20 cm = 100% de llenado
 #define TRIG_PIN 4
 #define ECHO_PIN 16
 
-// Configuración de tiempos (en milisegundos y microsegundos)
-const unsigned long activeDuration = 60000; // 1 minuto de mediciones
-const unsigned long sleepDuration = 15 * 60 * 1000000; // 15 minutos en microsegundos
+// Alturas del tanque (en cm)
+const float ALTURA_MAXIMA = 300.0; // 3 metros = 0% de llenado
+const float ALTURA_MINIMA = 20.0;  // 20 cm = 100% de llenado
 
+// Configuración de tiempos
+const unsigned long MEASUREMENT_TIME = 60000; // Tiempo de medición: 1 minuto (en ms)
+const unsigned long MEASUREMENT_INTERVAL = 15000; // Intervalo entre mediciones: 15 segundos (en ms)
+const unsigned long STABILIZATION_DELAY = 5000; // Espera entre estabilizaciones: 5 segundos (en ms)
 void setup() {
   Serial.begin(115200);
   while (!Serial);
-
   // Configurar los pines del sensor ultrasónico
   pinMode(TRIG_PIN, OUTPUT);
   pinMode(ECHO_PIN, INPUT);
-
   Serial.println("Iniciando LoRa...");
-
   // Configurar los pines del módulo LoRa
   LoRa.setPins(NSS, RST, DIO0);
-
-  // Iniciar el módulo LoRa en la frecuencia adecuada (433E6, 868E6 o 915E6)
-  if (!LoRa.begin(433E6)) {  // Cambia la frecuencia según el módulo
+  if (!LoRa.begin(433E6)) {
     Serial.println("Error al iniciar LoRa");
     while (1);
   }
-
   Serial.println("LoRa y sensor ultrasónico listos");
 }
-
 void loop() {
   unsigned long startTime = millis();
-
-  // Realizar mediciones y recepción durante 1 minuto
-  while (millis() - startTime < activeDuration) {
-    // Medir la distancia con el sensor ultrasónico
-    float distance = medirDistancia();
-
-    if (distance > 0) {
-      // Calcular el porcentaje de llenado
-      float porcentaje = calcularPorcentajeLlenado(distance);
-
-      // Imprimir los resultados
-      Serial.print("Distancia medida: ");
-      Serial.print(distance);
-      Serial.println(" cm");
-
-      Serial.print("Nivel del tanque: ");
-      Serial.print(porcentaje);
-      Serial.println("%");
-
-      // Enviar el porcentaje de llenado por LoRa
-      LoRa.beginPacket();
-      LoRa.print("Nivel del tanque: ");
-      LoRa.print(porcentaje);
-      LoRa.println("%");
-      LoRa.endPacket();
-
-      Serial.println("Mensaje enviado por LoRa");
-    } else {
-      Serial.println("Distancia es 0 cm, no se envía mensaje");
-    }
-
-    // Recepción de mensajes LoRa
-    int packetSize = LoRa.parsePacket();
-    if (packetSize) {
-      Serial.print("Mensaje recibido: ");
-
-      // Leer el paquete recibido
-      String message = "";
-      while (LoRa.available()) {
-        message += (char)LoRa.read();
+  int validReadings = 0;         // Contador de lecturas válidas
+  float totalPercentage = 0.0;   // Acumulador de porcentajes
+  // Tomar mediciones durante 1 minuto
+  while (millis() - startTime < MEASUREMENT_TIME) {
+    for (int i = 0; i < 4; i++) { // Cada ciclo de 15 segundos toma una medición
+      unsigned long intervalStart = millis();
+      // Realizar la medición al final de cada ciclo de 15 segundos
+      if (i == 2) {
+        float distance = medirDistancia();
+        if (distance > 0) {
+          float percentage = calcularPorcentajeLlenado(distance);
+          totalPercentage += percentage; // Acumular porcentaje
+          validReadings++;               // Contar lectura válida
+          // Mostrar la lectura en el monitor serie
+          Serial.print("Distancia medida: ");
+          Serial.print(distance);
+          Serial.println(" cm");
+          Serial.print("Nivel calculado: ");
+          Serial.print(percentage);
+          Serial.println("%");
+        } else {
+          Serial.println("Lectura inválida, ignorada.");
+        }
+      } else {
+        Serial.println("Espera"); 
       }
-
-      // Mostrar el mensaje recibido
-      Serial.println(message);
-    }
-
-    delay(5000); // Espera 5 segundos antes de la próxima medición
-  }
-
-  // Entrar en modo sleep por 15 minutos
-  Serial.println("Entrando en modo sleep...");
-  delay(100); // Pequeña espera antes de entrar en sleep
-  LoRa.end(); // Desactivar LoRa para ahorrar energía
-  esp_sleep_enable_timer_wakeup(sleepDuration);
-  esp_deep_sleep_start();
-
-  // El código continuará desde setup() después de despertar
-}
-
-// Función para medir la distancia con el sensor ultrasónico
-float medirDistancia() {
-  digitalWrite(TRIG_PIN, LOW);
-  delayMicroseconds(2);
-  digitalWrite(TRIG_PIN, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(TRIG_PIN, LOW);
-
-  long duration = pulseIn(ECHO_PIN, HIGH, 30000); // Tiempo máximo de espera: 30 ms
-  float distance = duration * 0.034 / 2;         // Distancia en cm
-  return distance;
-}
-
-// Función para calcular el porcentaje de llenado del tanque
-float calcularPorcentajeLlenado(float distancia) {
-  if (distancia >= ALTURA_MAXIMA) {
-    return 0.0; // El tanque está vacío
-  } else if (distancia <= ALTURA_MINIMA) {
-    return 100.0; // El tanque está lleno
-  }
-
-  return ((ALTURA_MAXIMA - distancia) / (ALTURA_MAXIMA - ALTURA_MINIMA)) * 100.0;
-}
-```
+      // Asegurarse de esperar 5 segundos en cada ciclo
+      while (millies() - currentTime)-TIME-LINE  
