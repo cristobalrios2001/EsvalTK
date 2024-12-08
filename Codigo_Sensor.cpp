@@ -1,109 +1,127 @@
-```C
 #include <SPI.h>
 #include <LoRa.h>
-#include <esp_sleep.h>
+#include "esp_bt.h"
+#include <WiFi.h>
 
-// Pines para el mÛdulo LoRa
-#define NSS 5     // Pin de selecciÛn de esclavo (NSS o CS)
+// Pines para el m√≥dulo LoRa
+#define NSS 5     // Pin de selecci√≥n de esclavo (NSS o CS)
 #define RST 14    // Pin de reinicio (Reset)
-#define DIO0 26   // Pin de interrupciÛn (DIO0)
+#define DIO0 26   // Pin de interrupci√≥n (DIO0)
 
-// Pines para el sensor ultrasÛnico
+// Pines para el sensor ultras√≥nico
 #define TRIG_PIN 4
 #define ECHO_PIN 16
 
-// Alturas del tanque (en cm)
-const float ALTURA_MAXIMA = 300.0; // 3 metros = 0% de llenado
-const float ALTURA_MINIMA = 20.0;  // 20 cm = 100% de llenado
+//--------------------------
+// Variables de configuraci√≥n
+const float ALTURA_MAXIMA = 152.0; // Altura m√°xima del tanque (en cm) = 0% de llenado
+const float ALTURA_MINIMA = 20.0;  // Altura m√≠nima del tanque (en cm) = 100% de llenado
 
-// ConfiguraciÛn de tiempos (en milisegundos y microsegundos)
-const unsigned long activeDuration = 60000; // 1 minuto de mediciones
-const unsigned long sleepDuration = 15 * 60 * 1000000; // 15 minutos en microsegundos
+const unsigned long MEASUREMENT_TIME = 60000;       // Tiempo total de medici√≥n (en ms)
+const unsigned long MEASUREMENT_INTERVAL = 15000;  // Intervalo entre mediciones (en ms)
+const unsigned long STABILIZATION_DELAY = 5000;    // Tiempo de espera para estabilizaci√≥n (en ms)
+const unsigned long SLEEP_TIME = 15 * 60 * 1000000; // Tiempo en modo deep sleep (15 minutos en ¬µs)
+//--------------------------
 
 void setup() {
   Serial.begin(115200);
   while (!Serial);
 
-  // Configurar los pines del sensor ultrasÛnico
+  // Deshabilitar Wi-Fi y Bluetooth para ahorrar bater√≠a
+  WiFi.mode(WIFI_OFF);
+  WiFi.disconnect(true);
+  esp_bluedroid_disable();
+  esp_bluedroid_deinit();
+  esp_bt_controller_disable();
+  esp_bt_controller_deinit();
+  esp_bt_controller_mem_release(ESP_BT_MODE_BTDM);
+
+  // Configurar los pines del sensor ultras√≥nico
   pinMode(TRIG_PIN, OUTPUT);
   pinMode(ECHO_PIN, INPUT);
 
   Serial.println("Iniciando LoRa...");
-
-  // Configurar los pines del mÛdulo LoRa
+  // Configurar los pines del m√≥dulo LoRa
   LoRa.setPins(NSS, RST, DIO0);
-
-  // Iniciar el mÛdulo LoRa en la frecuencia adecuada (433E6, 868E6 o 915E6)
-  if (!LoRa.begin(433E6)) {  // Cambia la frecuencia seg˙n el mÛdulo
+  if (!LoRa.begin(433E6)) {
     Serial.println("Error al iniciar LoRa");
     while (1);
   }
 
-  Serial.println("LoRa y sensor ultrasÛnico listos");
+  Serial.println("LoRa y sensor ultras√≥nico listos");
 }
 
 void loop() {
   unsigned long startTime = millis();
+  int validReadings = 0;         // Contador de lecturas v√°lidas
+  float totalPercentage = 0.0;   // Acumulador de porcentajes
 
-  // Realizar mediciones y recepciÛn durante 1 minuto
-  while (millis() - startTime < activeDuration) {
-    // Medir la distancia con el sensor ultrasÛnico
+  // Tomar mediciones durante el tiempo configurado
+  while (millis() - startTime < MEASUREMENT_TIME) {
+    unsigned long intervalStart = millis();
+
+    // Ciclos de estabilizaci√≥n
+    for (int i = 0; i < 3; i++) { // Tres ciclos de estabilizaci√≥n antes de una medici√≥n
+      Serial.print("Estabilizaci√≥n (espera de ");
+      Serial.print(STABILIZATION_DELAY / 1000);
+      Serial.println(" segundos)");
+      delay(STABILIZATION_DELAY); // Simular estabilizaci√≥n
+    }
+
+    // Realizar la medici√≥n
     float distance = medirDistancia();
-
     if (distance > 0) {
-      // Calcular el porcentaje de llenado
-      float porcentaje = calcularPorcentajeLlenado(distance);
+      float percentage = calcularPorcentajeLlenado(distance);
+      totalPercentage += percentage; // Acumular porcentaje
+      validReadings++;               // Contar lectura v√°lida
 
-      // Imprimir los resultados
+      // Mostrar la lectura en el monitor serie
       Serial.print("Distancia medida: ");
       Serial.print(distance);
       Serial.println(" cm");
-
-      Serial.print("Nivel del tanque: ");
-      Serial.print(porcentaje);
+      Serial.print("Nivel calculado: ");
+      Serial.print(percentage);
       Serial.println("%");
-
-      // Enviar el porcentaje de llenado por LoRa
-      LoRa.beginPacket();
-      LoRa.print("Nivel del tanque: ");
-      LoRa.print(porcentaje);
-      LoRa.println("%");
-      LoRa.endPacket();
-
-      Serial.println("Mensaje enviado por LoRa");
     } else {
-      Serial.println("Distancia es 0 cm, no se envÌa mensaje");
+      Serial.println("Lectura inv√°lida, ignorada.");
     }
 
-    // RecepciÛn de mensajes LoRa
-    int packetSize = LoRa.parsePacket();
-    if (packetSize) {
-      Serial.print("Mensaje recibido: ");
-
-      // Leer el paquete recibido
-      String message = "";
-      while (LoRa.available()) {
-        message += (char)LoRa.read();
-      }
-
-      // Mostrar el mensaje recibido
-      Serial.println(message);
+    // Esperar a completar el intervalo de medici√≥n si sobra tiempo
+    while (millis() - intervalStart < MEASUREMENT_INTERVAL) {
+      delay(100); // Peque√±a espera para no saturar el procesador
     }
-
-    delay(5000); // Espera 5 segundos antes de la prÛxima mediciÛn
   }
 
-  // Entrar en modo sleep por 15 minutos
-  Serial.println("Entrando en modo sleep...");
-  delay(100); // PequeÒa espera antes de entrar en sleep
-  LoRa.end(); // Desactivar LoRa para ahorrar energÌa
-  esp_sleep_enable_timer_wakeup(sleepDuration);
-  esp_deep_sleep_start();
+  // Calcular el promedio si hay lecturas v√°lidas
+  if (validReadings > 0) {
+    float averagePercentage = totalPercentage / validReadings;
 
-  // El cÛdigo continuar· desde setup() despuÈs de despertar
+    // Enviar el promedio por LoRa
+    LoRa.beginPacket();
+    LoRa.print("Nivel promedio del tanque: ");
+    LoRa.print(averagePercentage);
+    LoRa.println("%");
+    LoRa.endPacket();
+
+    Serial.print("Nivel promedio enviado: ");
+    Serial.print(averagePercentage);
+    Serial.println("%");
+  } else {
+    Serial.println("No se tomaron lecturas v√°lidas en este ciclo.");
+  }
+
+  // Entrar en modo deep sleep
+  Serial.println("Entrando en modo sleep...");
+  Serial.flush(); // Asegurarse de que se env√≠en todos los datos por Serial
+  delay(100);     // Peque√±a espera antes de entrar en sleep
+  LoRa.end();     // Desactivar LoRa para ahorrar energ√≠a
+
+  // Configurar el temporizador para despertar despu√©s del tiempo configurado
+  esp_sleep_enable_timer_wakeup(SLEEP_TIME);
+  esp_deep_sleep_start();
 }
 
-// FunciÛn para medir la distancia con el sensor ultrasÛnico
+// Funci√≥n para medir la distancia con el sensor ultras√≥nico
 float medirDistancia() {
   digitalWrite(TRIG_PIN, LOW);
   delayMicroseconds(2);
@@ -111,19 +129,22 @@ float medirDistancia() {
   delayMicroseconds(10);
   digitalWrite(TRIG_PIN, LOW);
 
-  long duration = pulseIn(ECHO_PIN, HIGH, 30000); // Tiempo m·ximo de espera: 30 ms
-  float distance = duration * 0.034 / 2;         // Distancia en cm
+  long duration = pulseIn(ECHO_PIN, HIGH, 30000); // Tiempo m√°ximo de espera: 30 ms
+
+  // Verificar si se obtuvo una lectura v√°lida
+  if (duration == 0) {
+    return -1.0; // Timeout ocurrido, lectura inv√°lida
+  }
+  float distance = duration * 0.034 / 2.0; // Distancia en cm
   return distance;
 }
 
-// FunciÛn para calcular el porcentaje de llenado del tanque
+// Funci√≥n para calcular el porcentaje de llenado del tanque
 float calcularPorcentajeLlenado(float distancia) {
   if (distancia >= ALTURA_MAXIMA) {
-    return 0.0; // El tanque est· vacÌo
+    return 0.0; // El tanque est√° vac√≠o
   } else if (distancia <= ALTURA_MINIMA) {
-    return 100.0; // El tanque est· lleno
+    return 100.0; // El tanque est√° lleno
   }
-
   return ((ALTURA_MAXIMA - distancia) / (ALTURA_MAXIMA - ALTURA_MINIMA)) * 100.0;
 }
-```
