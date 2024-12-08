@@ -1,80 +1,59 @@
-﻿using EsvalTK.Controllers;
+﻿using EsvalTK.Data;
 using EsvalTK.Models;
-using EsvalTK.Models.Responses;
-using Microsoft.AspNetCore.Mvc;
-using EsvalTK.Data;
 using Microsoft.EntityFrameworkCore;
 
-public interface IMedicionService
+namespace EsvalTK.Services
 {
-    Task<MedicionResponse> RegistrarMedicionAsync(MedicionRequest model);
-    Task<IActionResult> ObtenerUltimasMedicionesAsync();
-}
-
-public class MedicionService : IMedicionService
-{
-    private readonly EsvalTKContext _context;
-
-    public MedicionService(EsvalTKContext context)
+    public class MedicionesService
     {
-        _context = context;
-    }
+        private readonly EsvalTKContext _context;
 
-    public async Task<MedicionResponse> RegistrarMedicionAsync(MedicionRequest model)
-    {
-        // Validar dispositivo
-        var dispositivo = await _context.Dispositivotk
-            .FirstOrDefaultAsync(d => d.Estado == 1 && d.IdDispositivo == model.IdDispositivo);
-
-        if (dispositivo == null)
+        public MedicionesService(EsvalTKContext context)
         {
-            throw new Exception("No se encontró un dispositivo activo con el ID proporcionado.");
+            _context = context;
         }
 
-        // Crear la nueva medición
-        var medicion = new Medicion
+        // Registrar una medición
+        public async Task<bool> RegistrarMedicionAsync(string idDispositivo, double nivelAgua)
         {
-            Nivel = (long)model.NivelAgua,
-            Fecha = DateTime.Now,
-            IdRelacion = dispositivo.IdRelacion,
-        };
+            var dispositivo = await _context.Dispositivotk.FirstOrDefaultAsync(d => d.Estado == 1 && d.IdDispositivo == idDispositivo);
 
-        // Guardar la medición en la base de datos
-        _context.Mediciones.Add(medicion);
-        await _context.SaveChangesAsync();
+            if (dispositivo == null)
+            {
+                return false; // Dispositivo no encontrado o no activo
+            }
 
-        // Retornar respuesta
-        return new MedicionResponse
-        {
-            Message = "Medición registrada con éxito.",
-            IdDispositivo = model.IdDispositivo,
-            Nivel = medicion.Nivel,
-            FechaRegistro = medicion.Fecha
-        };
-    }
+            var medicion = new Medicion
+            {
+                Nivel = (long)nivelAgua,
+                Fecha = DateTime.Now,
+                IdRelacion = dispositivo.IdRelacion
+            };
 
-    public async Task<IActionResult> ObtenerUltimasMedicionesAsync()
-    {
-        var ultimasMediciones = await _context.Mediciones
-            .Include(m => m.Dispositivotk)
-            .GroupBy(m => m.IdRelacion)
-            .Select(g => g.OrderByDescending(m => m.Fecha).FirstOrDefault())
-            .ToListAsync();
+            _context.Mediciones.Add(medicion);
+            await _context.SaveChangesAsync();
 
-        var resultado = ultimasMediciones.Select(m => new
-        {
-            IdRelacion = m.IdRelacion,
-            NumeroEstanque = m.Dispositivotk?.NumeroEstanque,
-            Nivel = m.Nivel,
-            Fecha = m.Fecha.Date,
-            Hora = m.Fecha.TimeOfDay,
-        }).ToList();
-
-        if (resultado == null || !resultado.Any())
-        {
-            return new NotFoundObjectResult(new { Message = "No se encontraron mediciones." });
+            return true;
         }
 
-        return new OkObjectResult(resultado);
+        // Obtener las últimas mediciones por dispositivo activo
+        public async Task<List<object>> ObtenerUltimaMedicionPorDispositivoAsync()
+        {
+            var ultimasMediciones = await _context.Mediciones
+                .Include(m => m.Dispositivotk)
+                .Where(m => m.Dispositivotk != null && m.Dispositivotk.Estado == 1)
+                .GroupBy(m => m.IdRelacion)
+                .Select(g => g.OrderByDescending(m => m.Fecha).FirstOrDefault())
+                .ToListAsync();
+
+            return ultimasMediciones.Select(m => new
+            {
+                IdRelacion = m.IdRelacion,
+                NumeroEstanque = m.Dispositivotk?.NumeroEstanque,
+                Nivel = m.Nivel,
+                Fecha = m.Fecha.Date,
+                Hora = m.Fecha.TimeOfDay
+            }).ToList<object>();
+        }
     }
 }
