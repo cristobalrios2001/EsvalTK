@@ -21,6 +21,8 @@ const unsigned long MEASUREMENT_TIME = 60000;       // Tiempo total de medición
 const unsigned long MEASUREMENT_INTERVAL = 15000;   // Intervalo entre mediciones (en ms)
 const unsigned long STABILIZATION_DELAY = 5000;     // Tiempo de espera para estabilización (en ms)
 const unsigned long SLEEP_TIME = 15 * 60 * 1000000; // Tiempo en modo deep sleep (15 minutos en µs)
+
+const char* deviceId = "123456789"; // ID único del dispositivo
 //--------------------------
 
 void setup() {
@@ -30,7 +32,7 @@ void setup() {
   // Deshabilitar WiFi y Bluetooth para ahorrar energía en ESP32
   WiFi.mode(WIFI_OFF);
   WiFi.disconnect(true);
-  btStop(); // Detiene el Bluetooth en el ESP32        // Detiene el Bluetooth en el ESP32
+  btStop();
 
   // Pines del sensor ultrasónico
   pinMode(TRIG_PIN, OUTPUT);
@@ -46,37 +48,22 @@ void setup() {
   Serial.println("LoRa y sensor ultrasónico listos");
 }
 
-
 void loop() {
   unsigned long startTime = millis();
   int validReadings = 0;         // Contador de lecturas válidas
   float totalPercentage = 0.0;   // Acumulador de porcentajes
 
-  // Arreglo para almacenar las lecturas individuales
-  // Suponiendo un máximo de 10 lecturas (puede ajustarse si se modifica el tiempo/intervalo)
-  float readings[10];
-
   // Tomar mediciones durante el tiempo configurado
   while (millis() - startTime < MEASUREMENT_TIME) {
     unsigned long intervalStart = millis();
-
-    // Ciclos de estabilización antes de cada medición
-    for (int i = 0; i < 3; i++) {
-      Serial.print("Estabilización (espera de ");
-      Serial.print(STABILIZATION_DELAY / 1000);
-      Serial.println(" segundos)");
-      delay(STABILIZATION_DELAY);
-    }
 
     // Realizar la medición
     float distance = medirDistancia();
     if (distance > 0) {
       float percentage = calcularPorcentajeLlenado(distance);
       totalPercentage += percentage;
-      readings[validReadings] = percentage;
       validReadings++;
 
-      // Mostrar la lectura en el monitor serie
       Serial.print("Distancia medida: ");
       Serial.print(distance);
       Serial.println(" cm");
@@ -97,40 +84,26 @@ void loop() {
   if (validReadings > 0) {
     float averagePercentage = totalPercentage / validReadings;
 
-    // Enviar las lecturas individuales por LoRa
+    // Crear mensaje con ID del dispositivo y nivel promedio
+    String message = String("{\"IdDispositivo\":\"") + String(deviceId) + "\",\"NivelPromedio\":" + String(averagePercentage) + "}";
+
+    // Enviar el mensaje por LoRa
     LoRa.beginPacket();
-    LoRa.print("Lecturas individuales: ");
-    for (int i = 0; i < validReadings; i++) {
-      LoRa.print(readings[i]);
-      if (i < validReadings - 1) {
-        LoRa.print(", ");
-      }
-    }
+    LoRa.print(message);
     LoRa.endPacket();
 
-    delay(500); // Breve retraso entre paquetes
-
-    // Enviar el promedio por LoRa
-    LoRa.beginPacket();
-    LoRa.print("Nivel promedio del tanque: ");
-    LoRa.print(averagePercentage);
-    LoRa.println("%");
-    LoRa.endPacket();
-
-    Serial.print("Nivel promedio enviado: ");
-    Serial.print(averagePercentage);
-    Serial.println("%");
+    Serial.println("Mensaje enviado:");
+    Serial.println(message);
   } else {
     Serial.println("No se tomaron lecturas válidas en este ciclo.");
   }
 
   // Entrar en modo deep sleep
   Serial.println("Entrando en modo sleep...");
-  Serial.flush(); // Asegurarse de que se envíen todos los datos por Serial
-  delay(100);     // Pequeña espera antes de entrar en sleep
-  LoRa.end();     // Desactivar LoRa para ahorrar energía
+  Serial.flush();
+  delay(100);
+  LoRa.end();
 
-  // Configurar el temporizador para despertar después del tiempo configurado
   esp_sleep_enable_timer_wakeup(SLEEP_TIME);
   esp_deep_sleep_start();
 }
@@ -145,7 +118,6 @@ float medirDistancia() {
 
   long duration = pulseIn(ECHO_PIN, HIGH, 30000); // Tiempo máximo de espera: 30 ms
 
-  // Verificar si se obtuvo una lectura válida
   if (duration == 0) {
     return -1.0; // Timeout ocurrido, lectura inválida
   }
