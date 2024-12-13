@@ -1,0 +1,10 @@
+﻿version: '3.8'
+services:
+  webapp:
+    build: .
+    ports:
+      - "8080:7121"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+    env_file:
+      - .env
