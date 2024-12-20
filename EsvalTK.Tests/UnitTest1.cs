@@ -7,18 +7,19 @@ using EsvalTK.Data;
 using Microsoft.AspNetCore.Http;
 using EsvalTK.Models.Responses;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
+using EsvalTK.Services;
 
 namespace EsvalTK.Tests.Controllers
 {
     public class DispositivotksControllerTests
     {
-        private readonly Mock<EsvalTKContext> _mockContext;
+        private readonly Mock<IDispositivotkService> _mockService;
         private readonly DispositivotksController _controller;
 
         public DispositivotksControllerTests()
         {
-            _mockContext = new Mock<EsvalTKContext>();
-            _controller = new DispositivotksController(_mockContext.Object);
+            _mockService = new Mock<IDispositivotkService>();
+            _controller = new DispositivotksController(_mockService.Object);
         }
 
         [Fact]
@@ -41,8 +42,7 @@ namespace EsvalTK.Tests.Controllers
                 NumeroEstanque = "EST001"
             };
 
-            var mockSet = new Mock<DbSet<Dispositivotk>>();
-            _mockContext.Setup(c => c.Dispositivotk).Returns(mockSet.Object);
+            _mockService.Setup(s => s.CreateDispositivoAsync(model)).ReturnsAsync(true);
 
             // Configuración de TempData
             var tempData = new TempDataDictionary(new DefaultHttpContext(), Mock.Of<ITempDataProvider>());
@@ -54,7 +54,7 @@ namespace EsvalTK.Tests.Controllers
             // Assert
             var redirectResult = Assert.IsType<RedirectToActionResult>(result);
             Assert.Equal("Create", redirectResult.ActionName);
-            Assert.NotNull(_controller.TempData["SuccessMessage"]); // Ahora debería pasar
+            Assert.NotNull(_controller.TempData["SuccessMessage"]);
         }
 
 
@@ -66,7 +66,7 @@ namespace EsvalTK.Tests.Controllers
             {
                 IdDispositivo = "",
                 NumeroEstanque = ""
-            }; // Modelo inválido pero inicializado
+            }; // Modelo inválido
             _controller.ModelState.AddModelError("IdDispositivo", "Required");
 
             // Act
@@ -80,74 +80,95 @@ namespace EsvalTK.Tests.Controllers
 
     public class MedicionesControllerTests
     {
-        private readonly EsvalTKContext _context;
+        private readonly Mock<IMedicionesService> _mockService;
         private readonly MedicionesController _controller;
 
         public MedicionesControllerTests()
         {
-            // Configura el contexto con la base de datos en memoria
-            var options = new DbContextOptionsBuilder<EsvalTKContext>()
-                .UseInMemoryDatabase(databaseName: "TestDatabase")
-                .Options;
-
-            _context = new EsvalTKContext(options);
-
-            // Se pasa el contexto al controlador
-            _controller = new MedicionesController(_context);
+            _mockService = new Mock<IMedicionesService>();
+            _controller = new MedicionesController(_mockService.Object);
         }
 
         [Fact]
         public async Task RegisterWaterLevelMeasurement_DeviceNotFound_ReturnsNotFound()
         {
-            // Arrange: Asegurarse de que no haya dispositivos en la base de datos
-            _context.Dispositivotk.RemoveRange(_context.Dispositivotk);
-            await _context.SaveChangesAsync();
-
-            var request = new MedicionRequest
+            // Arrange
+            var request = new EsvalTK.Controllers.MedicionRequest
             {
                 IdDispositivo = "NONEXISTENT",
                 NivelAgua = 100.5
             };
 
-            // Act: Llamar al método del controlador
+            _mockService.Setup(s => s.RegistrarMedicionAsync(request.IdDispositivo, request.NivelAgua))
+                        .ReturnsAsync(false);
+
+            // Act
             var result = await _controller.RegistrarMedicion(request);
 
-            // Assert: Verificar que el resultado sea NotFound
+            // Assert
             var notFoundResult = Assert.IsType<NotFoundObjectResult>(result);
-            Assert.Equal("No se encontró un dispositivo activo con el ID proporcionado.", notFoundResult.Value);
+            var value = Assert.IsType<MedicionResponse>(notFoundResult.Value); 
+            Assert.Equal("No se encontró un dispositivo activo con el ID proporcionado.", value.Message); 
         }
+
 
         [Fact]
         public async Task RegisterWaterLevelMeasurement_ValidDevice_ReturnsOk()
         {
-            // Arrange: Agregar un dispositivo válido a la base de datos
-            var dispositivo = new Dispositivotk
-            {
-                IdDispositivo = "EXISTENT",
-                Estado = 1,
-                IdRelacion = Guid.NewGuid(),
-                NumeroEstanque= "123ABC"
-            };
-
-            _context.Dispositivotk.Add(dispositivo);
-            await _context.SaveChangesAsync();
-
-            var request = new MedicionRequest
+            // Arrange
+            var request = new EsvalTK.Controllers.MedicionRequest
             {
                 IdDispositivo = "EXISTENT",
                 NivelAgua = 75.5
             };
 
-            // Act: Llamar al método del controlador
+            _mockService.Setup(s => s.RegistrarMedicionAsync(request.IdDispositivo, request.NivelAgua))
+                        .ReturnsAsync(true);
+
+            // Act
             var result = await _controller.RegistrarMedicion(request);
 
-            // Assert: Verificar que el resultado sea Ok
+            // Assert
             var okResult = Assert.IsType<OkObjectResult>(result);
-            var response = Assert.IsType<MedicionResponse>(okResult.Value);
+            Assert.Equal("Medición registrada con éxito.", ((dynamic)okResult.Value).Message);
+        }
 
-            Assert.Equal("Medición registrada con éxito.", response.Message);
-            Assert.Equal(request.IdDispositivo, response.IdDispositivo);
-            Assert.Equal((long)request.NivelAgua, response.Nivel);
+        [Fact]
+        public async Task GetLatestMeasurementByDevice_NoMeasurementsFound_ReturnsNotFound()
+        {
+            // Arrange
+            _mockService.Setup(s => s.ObtenerUltimaMedicionPorDispositivoAsync())
+                        .ReturnsAsync(new List<object>());
+
+            // Act
+            var result = await _controller.ObtenerUltimaMedicionPorDispositivo();
+
+            // Assert
+            var notFoundResult = Assert.IsType<NotFoundObjectResult>(result);
+            var value = Assert.IsType<MedicionResponse>(notFoundResult.Value); // Cast explícito a MedicionResponse
+            Assert.Equal("No se encontraron mediciones.", value.Message); // Verificamos la comparación exacta
+        }
+
+
+
+        [Fact]
+        public async Task GetLatestMeasurementByDevice_MeasurementsFound_ReturnsOk()
+        {
+            // Arrange
+            var measurements = new List<object>
+            {
+                new { IdRelacion = Guid.NewGuid(), NumeroEstanque = "123ABC", Nivel = 75, Fecha = DateTime.Now.Date, Hora = DateTime.Now.TimeOfDay }
+            };
+
+            _mockService.Setup(s => s.ObtenerUltimaMedicionPorDispositivoAsync())
+                        .ReturnsAsync(measurements);
+
+            // Act
+            var result = await _controller.ObtenerUltimaMedicionPorDispositivo();
+
+            // Assert
+            var okResult = Assert.IsType<OkObjectResult>(result);
+            Assert.Equal(measurements, okResult.Value);
         }
     }
 

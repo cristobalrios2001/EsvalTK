@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EsvalTK.Services
 {
-    public class MedicionesService
+    public class MedicionesService : IMedicionesService
     {
         private readonly EsvalTKContext _context;
 
@@ -13,14 +13,13 @@ namespace EsvalTK.Services
             _context = context;
         }
 
-        // Registrar una medición
         public async Task<bool> RegistrarMedicionAsync(string idDispositivo, double nivelAgua)
         {
             var dispositivo = await _context.Dispositivotk.FirstOrDefaultAsync(d => d.Estado == 1 && d.IdDispositivo == idDispositivo);
 
             if (dispositivo == null)
             {
-                return false; // Dispositivo no encontrado o no activo
+                return false;
             }
 
             var medicion = new Medicion
@@ -36,7 +35,6 @@ namespace EsvalTK.Services
             return true;
         }
 
-        // Obtener las últimas mediciones por dispositivo activo
         public async Task<List<object>> ObtenerUltimaMedicionPorDispositivoAsync()
         {
             var ultimasMediciones = await _context.Mediciones

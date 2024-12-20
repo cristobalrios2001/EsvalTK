@@ -68,6 +68,8 @@ public class Program
         services.AddControllersWithViews();
         services.AddScoped<IDispositivotkService, DispositivotkService>();
         services.AddScoped<MedicionesService, MedicionesService>();
+        services.AddScoped<IMedicionesService, MedicionesService>();
+
     }
 
     private static string BuildConnectionString()
