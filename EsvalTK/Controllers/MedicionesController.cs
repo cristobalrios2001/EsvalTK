@@ -1,4 +1,5 @@
-﻿using EsvalTK.Services;
+﻿using EsvalTK.Models.Responses;
+using EsvalTK.Services;
 using Microsoft.AspNetCore.Mvc;
 using System.ComponentModel.DataAnnotations;
 
@@ -8,9 +9,9 @@ namespace EsvalTK.Controllers
     [Route("api/[controller]")]
     public class MedicionesController : ControllerBase
     {
-        private readonly MedicionesService _medicionesService;
+        private readonly IMedicionesService _medicionesService;
 
-        public MedicionesController(MedicionesService medicionesService)
+        public MedicionesController(IMedicionesService medicionesService)
         {
             _medicionesService = medicionesService;
         }
@@ -27,10 +28,19 @@ namespace EsvalTK.Controllers
 
             if (!resultado)
             {
-                return NotFound(new { Message = "No se encontró un dispositivo activo con el ID proporcionado." });
+                return NotFound(new MedicionResponse { Message = "No se encontró un dispositivo activo con el ID proporcionado." });
             }
 
-            return Ok(new { Message = "Medición registrada con éxito." });
+
+            var response = new MedicionResponse
+            {
+                Message = "Medición registrada con éxito.",
+                IdDispositivo = model.IdDispositivo,
+                Nivel = (long)model.NivelAgua,
+                FechaRegistro = DateTime.Now
+            };
+
+            return Ok(response);
         }
 
         [HttpGet("GetLatestMeasurementByDevice")]
@@ -40,7 +50,7 @@ namespace EsvalTK.Controllers
 
             if (resultado == null || !resultado.Any())
             {
-                return NotFound(new { Message = "No se encontraron mediciones." });
+                return NotFound(new MedicionResponse { Message = "No se encontraron mediciones." });
             }
 
             return Ok(resultado);

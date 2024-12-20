@@ -1,15 +1,20 @@
 ﻿using EsvalTK.Models;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 
 namespace EsvalTK.Controllers
 {
     public class DispositivotksController : Controller
     {
         private readonly IDispositivotkService _dispositivotkService;
+        private readonly ILogger<DispositivotksController> _logger;
 
-        public DispositivotksController(IDispositivotkService dispositivotkService)
+        public DispositivotksController(
+            IDispositivotkService dispositivotkService,
+            ILogger<DispositivotksController> logger)
         {
-            _dispositivotkService = dispositivotkService;
+            _dispositivotkService = dispositivotkService ?? throw new ArgumentNullException(nameof(dispositivotkService));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
         [HttpGet]
@@ -19,24 +24,34 @@ namespace EsvalTK.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(DispositivotkViewModel model)
         {
-            if (ModelState.IsValid)
+            try
             {
-                var result = await _dispositivotkService.CreateDispositivoAsync(model);
+                if (!ModelState.IsValid)
+                {
+                    return View(model);
+                }
 
-                if (result)
+                var (success, message) = await _dispositivotkService.CreateDispositivoAsync(model);
+
+                if (success)
                 {
-                    TempData["SuccessMessage"] = "El registro del dispositivo y estanque fue realizado con éxito.";
-                    return RedirectToAction("Create");
+                    TempData["SuccessMessage"] = message;
+                    return RedirectToAction(nameof(Create));
                 }
-                else
-                {
-                    ModelState.AddModelError(string.Empty, "Ocurrió un error al guardar el dispositivo.");
-                }
+
+                // Usando TempData para mostrar mensajes de error también
+                TempData["ErrorMessage"] = message;
+                return View(model);
             }
-
-            return View(model);
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al procesar la creación de la relación");
+                TempData["ErrorMessage"] = "Ocurrió un error inesperado al procesar la solicitud";
+                return View(model);
+            }
         }
     }
 }
