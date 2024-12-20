@@ -47,7 +47,7 @@ public class Program
         var connectionString = BuildConnectionString();
 
         // Configuración del contexto de base de datos
-        services.AddDbContext<DbContext>(options =>
+        services.AddDbContext<EsvalTKContext>(options =>
             options.UseOracle(connectionString)
                .EnableSensitiveDataLogging()
                .LogTo(Console.WriteLine));
@@ -86,10 +86,21 @@ public class Program
 
     private static void ConfigureWebHost(IWebHostBuilder webHost)
     {
-        webHost.ConfigureKestrel(options =>
+        
+        if (IsRunningInDocker())
         {
-            options.ListenAnyIP(7121);  // Escucha en todas las interfaces en el puerto 7121
-        });
+            webHost.ConfigureKestrel(options =>
+            {
+                options.ListenAnyIP(7121); // Escucha en todas las interfaces en el puerto 7121
+            });
+        }
+    }
+
+
+    private static bool IsRunningInDocker()
+    {
+        
+        return Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true";
     }
 
     private static void ConfigureHttpPipeline(WebApplication app)
