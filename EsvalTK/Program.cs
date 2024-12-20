@@ -49,8 +49,8 @@ public class Program
         // Configuración del contexto de base de datos
         services.AddDbContext<DbContext>(options =>
             options.UseOracle(connectionString)
-                   .EnableSensitiveDataLogging()
-                   .LogTo(Console.WriteLine));
+               .EnableSensitiveDataLogging()
+               .LogTo(Console.WriteLine));
 
         // Configuración de Swagger
         services.AddEndpointsApiExplorer();
@@ -114,6 +114,7 @@ public class Program
         app.UseHttpsRedirection();
         app.UseStaticFiles();
         app.UseRouting();
+        app.UseCors();
         app.UseAuthorization();
 
         // Configuración de rutas

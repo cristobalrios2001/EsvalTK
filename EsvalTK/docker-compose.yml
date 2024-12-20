@@ -1,10 +1,37 @@
 ﻿version: '3.8'
 services:
+  oracle-db:
+    image: gvenzl/oracle-xe:21-slim
+    container_name: oracle-esval
+    ports:
+      - "1522:1521"
+    environment:
+      - ORACLE_PASSWORD=TuPasswordAdmin
+      - APP_USER=esval_user
+      - APP_USER_PASSWORD=Esval_tk1
+      - ORACLE_DATABASE=esvaltk
+    volumes:
+      - oracle-data:/opt/oracle/oradata
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
   webapp:
     build: .
+    container_name: esval-webapp
     ports:
       - "8080:7121"
     environment:
-      - ASPNETCORE_ENVIRONMENT=Production
-    env_file:
-      - .env
+      - ASPNETCORE_ENVIRONMENT=Development
+      - DB_USER=esval_user
+      - DB_PASSWORD=Esval_tk1
+      - DB_SOURCE=(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=TCP)(HOST=oracle-db)(PORT=1521)))(CONNECT_DATA=(SERVICE_NAME=XEPDB1)))
+    depends_on:
+      oracle-db:
+        condition: service_healthy
+
+volumes:
+  oracle-data:
