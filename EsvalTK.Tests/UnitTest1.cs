@@ -8,18 +8,29 @@ using Microsoft.AspNetCore.Http;
 using EsvalTK.Models.Responses;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using EsvalTK.Services;
+using Microsoft.Extensions.Logging;
 
 namespace EsvalTK.Tests.Controllers
 {
     public class DispositivotksControllerTests
     {
         private readonly Mock<IDispositivotkService> _mockService;
+        private readonly Mock<ILogger<DispositivotksController>> _mockLogger;
         private readonly DispositivotksController _controller;
+        private readonly TempDataDictionary _tempData;
 
         public DispositivotksControllerTests()
         {
             _mockService = new Mock<IDispositivotkService>();
-            _controller = new DispositivotksController(_mockService.Object);
+            _mockLogger = new Mock<ILogger<DispositivotksController>>();
+            _controller = new DispositivotksController(_mockService.Object, _mockLogger.Object);
+
+            // Configuración de TempData que será usada en múltiples tests
+            _tempData = new TempDataDictionary(
+                new DefaultHttpContext(),
+                Mock.Of<ITempDataProvider>()
+            );
+            _controller.TempData = _tempData;
         }
 
         [Fact]
@@ -29,11 +40,11 @@ namespace EsvalTK.Tests.Controllers
             var result = _controller.Create();
 
             // Assert
-            Assert.IsType<ViewResult>(result);
+            var viewResult = Assert.IsType<ViewResult>(result);
         }
 
         [Fact]
-        public async Task Create_POST_ValidModel_RedirectsToCreateWithSuccessMessage()
+        public async Task Create_POST_ValidModel_Success_RedirectsToCreateWithSuccessMessage()
         {
             // Arrange
             var model = new DispositivotkViewModel
@@ -42,11 +53,8 @@ namespace EsvalTK.Tests.Controllers
                 NumeroEstanque = "EST001"
             };
 
-            _mockService.Setup(s => s.CreateDispositivoAsync(model)).ReturnsAsync(true);
-
-            // Configuración de TempData
-            var tempData = new TempDataDictionary(new DefaultHttpContext(), Mock.Of<ITempDataProvider>());
-            _controller.TempData = tempData;
+            _mockService.Setup(s => s.CreateDispositivoAsync(model))
+                .ReturnsAsync((true, "La relación fue creada exitosamente"));
 
             // Act
             var result = await _controller.Create(model);
@@ -54,9 +62,30 @@ namespace EsvalTK.Tests.Controllers
             // Assert
             var redirectResult = Assert.IsType<RedirectToActionResult>(result);
             Assert.Equal("Create", redirectResult.ActionName);
-            Assert.NotNull(_controller.TempData["SuccessMessage"]);
+            Assert.Equal("La relación fue creada exitosamente", _controller.TempData["SuccessMessage"]);
         }
 
+        [Fact]
+        public async Task Create_POST_ValidModel_Failure_ReturnsViewWithErrorMessage()
+        {
+            // Arrange
+            var model = new DispositivotkViewModel
+            {
+                IdDispositivo = "TEST001",
+                NumeroEstanque = "EST001"
+            };
+
+            _mockService.Setup(s => s.CreateDispositivoAsync(model))
+                .ReturnsAsync((false, "Ya existe una relación activa"));
+
+            // Act
+            var result = await _controller.Create(model);
+
+            // Assert
+            var viewResult = Assert.IsType<ViewResult>(result);
+            Assert.Equal(model, viewResult.Model);
+            Assert.Equal("Ya existe una relación activa", _controller.TempData["ErrorMessage"]);
+        }
 
         [Fact]
         public async Task Create_POST_InvalidModel_ReturnsViewWithModel()
@@ -66,7 +95,7 @@ namespace EsvalTK.Tests.Controllers
             {
                 IdDispositivo = "",
                 NumeroEstanque = ""
-            }; // Modelo inválido
+            };
             _controller.ModelState.AddModelError("IdDispositivo", "Required");
 
             // Act
@@ -75,6 +104,53 @@ namespace EsvalTK.Tests.Controllers
             // Assert
             var viewResult = Assert.IsType<ViewResult>(result);
             Assert.Equal(model, viewResult.Model);
+            Assert.False(_controller.ModelState.IsValid);
+        }
+
+        [Fact]
+        public async Task Create_POST_ServiceThrowsException_ReturnsViewWithErrorMessage()
+        {
+            // Arrange
+            var model = new DispositivotkViewModel
+            {
+                IdDispositivo = "TEST001",
+                NumeroEstanque = "EST001"
+            };
+
+            _mockService.Setup(s => s.CreateDispositivoAsync(model))
+                .ThrowsAsync(new Exception("Test exception"));
+
+            // Act
+            var result = await _controller.Create(model);
+
+            // Assert
+            var viewResult = Assert.IsType<ViewResult>(result);
+            Assert.Equal(model, viewResult.Model);
+            Assert.Equal("Ocurrió un error inesperado al procesar la solicitud",
+                _controller.TempData["ErrorMessage"]);
+        }
+
+        [Fact]
+        public async Task Create_POST_ValidModel_Reactivation_RedirectsToCreateWithSuccessMessage()
+        {
+            // Arrange
+            var model = new DispositivotkViewModel
+            {
+                IdDispositivo = "TEST001",
+                NumeroEstanque = "EST001"
+            };
+
+            _mockService.Setup(s => s.CreateDispositivoAsync(model))
+                .ReturnsAsync((true, "La relación fue reactivada exitosamente"));
+
+            // Act
+            var result = await _controller.Create(model);
+
+            // Assert
+            var redirectResult = Assert.IsType<RedirectToActionResult>(result);
+            Assert.Equal("Create", redirectResult.ActionName);
+            Assert.Equal("La relación fue reactivada exitosamente",
+                _controller.TempData["SuccessMessage"]);
         }
     }
 
